@@ -11,18 +11,3 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-
-# Training outputs and Logs
-runs/
-*.log
-
-# Large data
-data/
-DATA/
-datasets/
-
-# Model weights (Ignore all except best.pt)
-*.pt
-*.onnx
-*.engine
-!best.pt
