@@ -77,7 +77,8 @@ st.markdown("""
 # --- Model Loading ---
 @st.cache_resource
 def load_model():
-    model_path = "./best.pt"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(current_dir, "best.pt")
     if not os.path.exists(model_path):
         print(f"Status: Custom trained weights '{model_path}' not found, falling back to 'yolov8n.pt'.")
         model_path = "yolov8n.pt" # Fallback
