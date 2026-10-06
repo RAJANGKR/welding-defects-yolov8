@@ -109,16 +109,15 @@ uploaded_file = st.file_uploader("Upload Weld Seam Image (JPG, PNG, JPEG)", type
 if uploaded_file is not None:
     # Load Image
     image = Image.open(uploaded_file).convert('RGB')
-    img_array = np.array(image)
     
     # Run Inference
     with st.spinner("Analyzing weld structure..."):
-        results = model.predict(source=img_array, conf=conf_threshold, iou=iou_threshold)
+        results = model.predict(source=image, conf=conf_threshold, iou=iou_threshold)
         result = results[0]
         
     # Process Results
     boxes = result.boxes
-    annotated_img = result.plot()
+    annotated_img = result.plot()[..., ::-1] # Convert BGR to RGB for Streamlit
     
     # Extract Data
     class_names = model.names
