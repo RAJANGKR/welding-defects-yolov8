@@ -1,0 +1,7 @@
+path: /Users/rjn_g/.cache/kagglehub/datasets/benyaminrazaziyan/surface-weld-defect-dataset-crak-porosityspatter/versions/1/weld-defect-yolov8 -MAIN FILE/DATA
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 3
+names: ['crack', 'porosity', 'spatter']
