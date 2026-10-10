@@ -52,14 +52,22 @@ def analyze_video(
             if not success:
                 break
 
-            results = model.track(
-                source=frame,
-                conf=conf,
-                iou=iou,
-                persist=True,
-                tracker="bytetrack.yaml",
-                verbose=False,
-            )
+            try:
+                results = model.track(
+                    source=frame,
+                    conf=conf,
+                    iou=iou,
+                    persist=True,
+                    tracker="bytetrack.yaml",
+                    verbose=False,
+                )
+            except ModuleNotFoundError as error:
+                if error.name == "lap":
+                    raise RuntimeError(
+                        "Video tracking requires the 'lap' package. "
+                        "Install dependencies from requirements.txt and restart the app."
+                    ) from error
+                raise
             result = results[0]
             boxes = result.boxes
             annotated = result.plot()
