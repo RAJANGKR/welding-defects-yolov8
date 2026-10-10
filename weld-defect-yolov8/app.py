@@ -6,6 +6,10 @@ from PIL import Image
 import pandas as pd
 import os
 import datetime
+import tempfile
+from pathlib import Path
+
+from inference.video_analyzer import analyze_video
 
 # --- Config and Setup ---
 st.set_page_config(
@@ -105,9 +109,114 @@ with st.sidebar:
 st.title("🔍 Industrial Weld Defect Detection")
 st.markdown("AI-Powered Quality Assurance System")
 
-uploaded_file = st.file_uploader("Upload Weld Seam Image (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader(
+    "Upload a weld seam image or video",
+    type=["jpg", "png", "jpeg", "mp4", "avi", "mov"],
+)
 
 if uploaded_file is not None:
+    file_suffix = Path(uploaded_file.name).suffix.lower()
+    if file_suffix in {".mp4", ".avi", ".mov"}:
+        st.subheader("Video Analysis")
+        st.caption("The complete video will be tracked before the annotated result and charts are shown.")
+        if st.button("Analyze video", type="primary"):
+            with tempfile.TemporaryDirectory(prefix="weld_video_") as work_dir:
+                source_path = Path(work_dir) / uploaded_file.name
+                output_path = Path(work_dir) / "annotated_video.mp4"
+                source_path.write_bytes(uploaded_file.getvalue())
+                progress = st.progress(0.0, text="Preparing video analysis...")
+
+                def update_progress(value: float) -> None:
+                    progress.progress(value, text=f"Analyzing video: {value:.0%}")
+
+                try:
+                    with st.spinner("Tracking defects through the video..."):
+                        metrics, summary = analyze_video(
+                            model,
+                            source_path,
+                            output_path,
+                            conf_threshold,
+                            iou_threshold,
+                            update_progress,
+                        )
+                    progress.progress(1.0, text="Video analysis complete")
+                    video_bytes = output_path.read_bytes()
+                except (OSError, ValueError, RuntimeError) as error:
+                    progress.empty()
+                    st.error(f"Video analysis failed: {error}")
+                    st.stop()
+
+            unique_defects = summary["unique_defects"]
+            counts = {
+                "Crack": unique_defects.get("crack", 0),
+                "Porosity": unique_defects.get("porosity", 0),
+                "Spatter": unique_defects.get("spatter", 0),
+            }
+            if counts["Crack"] > 0:
+                verdict = "REJECT"
+            elif counts["Porosity"] > 0 or counts["Spatter"] > 0:
+                verdict = "REWORK"
+            else:
+                verdict = "PASSED"
+
+            st.video(video_bytes)
+            st.subheader("Video Metrics")
+            metric_columns = st.columns(5)
+            metric_columns[0].metric("Unique defects", sum(counts.values()))
+            metric_columns[1].metric("Cracks", counts["Crack"])
+            metric_columns[2].metric("Porosity", counts["Porosity"])
+            metric_columns[3].metric("Spatter", counts["Spatter"])
+            metric_columns[4].metric("Duration", f'{summary["duration_seconds"]:.1f}s')
+
+            if verdict == "REJECT":
+                st.error("REJECT: at least one tracked crack was detected.")
+            elif verdict == "REWORK":
+                st.warning("REWORK: porosity or spatter was detected.")
+            else:
+                st.success("PASSED: no tracked weld defects were detected.")
+
+            chart_data = metrics.set_index("timestamp_seconds")[
+                ["crack", "porosity", "spatter"]
+            ]
+            st.subheader("Defects over time")
+            st.line_chart(chart_data)
+
+            confidence_data = metrics.set_index("timestamp_seconds")[
+                ["average_confidence"]
+            ]
+            st.subheader("Average confidence over time")
+            st.line_chart(confidence_data)
+
+            summary_df = pd.DataFrame(
+                [
+                    {
+                        "Filename": uploaded_file.name,
+                        "Duration (seconds)": summary["duration_seconds"],
+                        "FPS": summary["fps"],
+                        "Frames processed": summary["frame_count"],
+                        "Unique cracks": counts["Crack"],
+                        "Unique porosity": counts["Porosity"],
+                        "Unique spatter": counts["Spatter"],
+                        "QA verdict": verdict,
+                    }
+                ]
+            )
+            st.download_button(
+                "Download video summary (CSV)",
+                summary_df.to_csv(index=False),
+                file_name=f"QA_Video_Summary_{Path(uploaded_file.name).stem}.csv",
+                mime="text/csv",
+            )
+            st.download_button(
+                "Download frame metrics (CSV)",
+                metrics.to_csv(index=False),
+                file_name=f"QA_Frame_Metrics_{Path(uploaded_file.name).stem}.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info("Click **Analyze video** to process the uploaded file.")
+        st.stop()
+
     # Load Image
     image = Image.open(uploaded_file).convert('RGB')
     

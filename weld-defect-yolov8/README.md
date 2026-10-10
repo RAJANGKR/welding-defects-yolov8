@@ -160,6 +160,24 @@ python scripts/predict.py \
 
 Predicted images will be saved automatically.
 
+## Video Analysis
+
+Run the Streamlit application to analyze either an image or a video:
+
+```bash
+streamlit run app.py
+```
+
+Upload an MP4, AVI, or MOV file and click **Analyze video**. The application
+tracks detections across frames with ByteTrack, displays the annotated video,
+plots defect counts and confidence over time, and provides CSV downloads for
+the video summary and frame-level metrics. Video processing is performed
+before playback; the charts are timestamped using the source video's FPS.
+
+The video summary reports unique tracked defects rather than summing every
+detection from every frame. A defect that remains visible for multiple frames
+therefore contributes one tracked object to the summary.
+
 ## Dataset Validation
 
 Before training, check whether the dataset is complete and consistent:
